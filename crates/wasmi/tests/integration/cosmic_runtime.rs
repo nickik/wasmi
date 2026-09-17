@@ -17,6 +17,8 @@ const LOG_OK: &[u8] = include_bytes!("../fixtures/cosmic/log_ok.wasm");
 const LOG_OOB: &[u8] = include_bytes!("../fixtures/cosmic/log_oob.wasm");
 const LOG_DENIED: &[u8] = include_bytes!("../fixtures/cosmic/log_denied.wasm");
 const FUEL_LOOP: &[u8] = include_bytes!("../fixtures/cosmic/fuel_loop.wasm");
+const INTEGER_CONTROL: &[u8] = include_bytes!("../fixtures/cosmic/integer_control.wasm");
+const MEMORY_UNBOUNDED: &[u8] = include_bytes!("../fixtures/cosmic/memory_unbounded.wasm");
 
 #[derive(Default)]
 struct CosmicHost {
@@ -81,7 +83,9 @@ fn validate_manifest(bytes: &[u8], manifest: Manifest) -> Result<(), LoadError> 
             Payload::MemorySection(section) => {
                 for memory in section {
                     let memory = memory.map_err(|_| LoadError::InvalidModule)?;
-                    if memory.initial > manifest.max_memory_pages {
+                    if memory.initial > manifest.max_memory_pages
+                        || memory.maximum.unwrap_or(u64::MAX) > manifest.max_memory_pages
+                    {
                         return Err(LoadError::MemoryLimitExceeded);
                     }
                 }
@@ -181,6 +185,18 @@ fn cosmic_runtime_reports_fuel_exhaustion_as_a_guest_failure() {
 }
 
 #[test]
+fn cosmic_integer_control_fixture_runs_without_imports() {
+    let (mut store, linker) = test_setup();
+    let module = Module::new(store.engine(), INTEGER_CONTROL).unwrap();
+    let instance = linker.instantiate_and_start(&mut store, &module).unwrap();
+    let start = instance
+        .get_typed_func::<(), i32>(&store, "_start")
+        .unwrap();
+
+    assert_eq!(start.call(&mut store, ()).unwrap(), 3);
+}
+
+#[test]
 #[cfg_attr(not(feature = "wat"), ignore)]
 fn cosmic_wat_sources_reproduce_checked_in_binary_fixtures() {
     for (source, fixture) in [
@@ -188,6 +204,14 @@ fn cosmic_wat_sources_reproduce_checked_in_binary_fixtures() {
         (include_str!("../fixtures/cosmic/log_oob.wat"), LOG_OOB),
         (include_str!("../fixtures/cosmic/log_denied.wat"), LOG_DENIED),
         (include_str!("../fixtures/cosmic/fuel_loop.wat"), FUEL_LOOP),
+        (
+            include_str!("../fixtures/cosmic/integer_control.wat"),
+            INTEGER_CONTROL,
+        ),
+        (
+            include_str!("../fixtures/cosmic/memory_unbounded.wat"),
+            MEMORY_UNBOUNDED,
+        ),
     ] {
         assert_eq!(wat::parse_str(source).unwrap(), fixture);
     }
@@ -233,6 +257,15 @@ fn cosmic_manifest_rejects_malformed_payloads_before_execution() {
     let bytes = b"not a wasm module";
     let manifest = manifest("malformed", bytes);
     assert_eq!(validate_manifest(bytes, manifest), Err(LoadError::InvalidModule));
+}
+
+#[test]
+fn cosmic_manifest_rejects_unbounded_linear_memory_before_execution() {
+    let manifest = manifest("memory-unbounded", MEMORY_UNBOUNDED);
+    assert_eq!(
+        validate_manifest(MEMORY_UNBOUNDED, manifest),
+        Err(LoadError::MemoryLimitExceeded)
+    );
 }
 
 #[test]
