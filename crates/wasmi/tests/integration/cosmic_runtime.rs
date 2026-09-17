@@ -46,6 +46,8 @@ enum LoadError {
     ModuleTooLarge,
     TooManyImports,
     MemoryLimitExceeded,
+    UnknownImport,
+    CapabilityDenied,
     InvalidModule,
 }
 
@@ -79,7 +81,18 @@ fn validate_manifest(bytes: &[u8], manifest: Manifest) -> Result<(), LoadError> 
     let mut imports = 0;
     for payload in Parser::new(0).parse_all(bytes) {
         match payload.map_err(|_| LoadError::InvalidModule)? {
-            Payload::ImportSection(section) => imports += section.count(),
+            Payload::ImportSection(section) => {
+                imports += section.count();
+                for import in section {
+                    let import = import.map_err(|_| LoadError::InvalidModule)?;
+                    if import.module != "cosmic:sys" || import.name != "log_write" {
+                        return Err(LoadError::UnknownImport);
+                    }
+                    if !manifest.logging_capability {
+                        return Err(LoadError::CapabilityDenied);
+                    }
+                }
+            }
             Payload::MemorySection(section) => {
                 for memory in section {
                     let memory = memory.map_err(|_| LoadError::InvalidModule)?;
@@ -224,6 +237,11 @@ fn cosmic_manifest_accepts_the_checked_in_fixture_profile() {
     assert!(manifest.logging_capability);
     assert_eq!(manifest.fuel, 1_000);
     assert_eq!(validate_manifest(LOG_OK, manifest), Ok(()));
+
+    let mut no_imports = manifest("integer-control", INTEGER_CONTROL);
+    no_imports.max_imports = 0;
+    no_imports.logging_capability = false;
+    assert_eq!(validate_manifest(INTEGER_CONTROL, no_imports), Ok(()));
 }
 
 #[test]
@@ -277,7 +295,10 @@ fn cosmic_loader_rejects_unknown_and_incompatible_imports_before_guest_execution
         .unwrap();
     unknown[name..name + b"log_write".len()].copy_from_slice(b"log_wrong");
     let unknown_manifest = manifest("unknown-import", &unknown);
-    assert_eq!(validate_manifest(&unknown, unknown_manifest), Ok(()));
+    assert_eq!(
+        validate_manifest(&unknown, unknown_manifest),
+        Err(LoadError::UnknownImport)
+    );
     let (mut store, linker) = test_setup();
     let unknown_module = Module::new(store.engine(), unknown).unwrap();
     assert!(linker.instantiate_and_start(&mut store, &unknown_module).is_err());
@@ -298,6 +319,16 @@ fn cosmic_loader_rejects_unknown_and_incompatible_imports_before_guest_execution
         .instantiate_and_start(&mut store, &incompatible_module)
         .is_err());
     assert!(store.data().logs.is_empty());
+}
+
+#[test]
+fn cosmic_manifest_rejects_requested_imports_without_the_capability() {
+    let mut manifest = manifest("log-without-capability", LOG_OK);
+    manifest.logging_capability = false;
+    assert_eq!(
+        validate_manifest(LOG_OK, manifest),
+        Err(LoadError::CapabilityDenied)
+    );
 }
 
 #[test]
