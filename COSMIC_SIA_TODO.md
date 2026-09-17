@@ -54,6 +54,16 @@ The proposed unprivileged runtime boundary and initial `cosmic:sys` contract liv
 [`docs/COSMIC_SIA_RUNTIME_CONTRACT.md`](docs/COSMIC_SIA_RUNTIME_CONTRACT.md). It is not frozen
 until Cosmic adopts an equivalent contract.
 
+### Completed host-side W0 evidence
+
+- [x] Checked-in binary fixtures plus reproducible `.wat` sources for `log_write` success,
+  bounds rejection, denied capability, and fuel exhaustion. The conformance test proves each
+  source regenerates its exact binary fixture.
+- [x] Host manifest/reference-loader checks for module hash, ABI version, byte/import/memory
+  limits, malformed payloads, unknown/incompatible imports, and repeated lifecycle cleanup.
+- [x] Focused reference-harness command:
+  `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks`.
+
 - [ ] Define the initial target triple/specification for freestanding SIA32 Rust:
   pointer width, endianness, stack alignment, atomics, panic strategy, and supported Rust version.
 - [ ] Prove a minimal `#![no_std]`, `#![no_main]` Rust binary executes on the real LightingSimulation
