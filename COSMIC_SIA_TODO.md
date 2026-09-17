@@ -64,9 +64,9 @@ until Cosmic adopts an equivalent contract.
 - [x] Focused reference-harness command:
   `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks`.
 
-- [x] Published remote PR: [PR #1](https://github.com/nickik/wasmi/pull/1), latest verified runtime commit `d23fa08b623cd9e68d964d999730a6347a10e8c0`.
-- [x] Exact-head host test: `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks` — 13 passed on `d23fa08b623cd9e68d964d999730a6347a10e8c0`.
-- [ ] CI evidence: GitHub reports no status checks and no pull-request workflow runs for `d23fa08b623cd9e68d964d999730a6347a10e8c0`.
+- [x] Published remote PR: [PR #1](https://github.com/nickik/wasmi/pull/1), latest verified runtime commit `cad70cbbc95314d752b9e03a9288f8d3b1c8a35a`.
+- [x] Exact-head host test: `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks` — 13 passed on `cad70cbbc95314d752b9e03a9288f8d3b1c8a35a`.
+- [ ] CI evidence: `.github/workflows/rust.yml` defines a `pull_request` gate for `main`, but GitHub reports no status checks and zero pull-request workflow runs for `cad70cbbc95314d752b9e03a9288f8d3b1c8a35a`.
 
 - [ ] Define the initial target triple/specification for freestanding SIA32 Rust:
   pointer width, endianness, stack alignment, atomics, panic strategy, and supported Rust version.
