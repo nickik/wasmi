@@ -64,9 +64,9 @@ until Cosmic adopts an equivalent contract.
 - [x] Focused reference-harness command:
   `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks`.
 
-- [x] Published remote PR: [PR #1](https://github.com/nickik/wasmi/pull/1), latest verified runtime commit `c903d9a5e85c8c7507d0e6b7822c1d7a9f6b2b04`.
-- [x] Exact-head host test: `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks` — 13 passed on `c903d9a5e85c8c7507d0e6b7822c1d7a9f6b2b04`.
-- [ ] CI evidence: GitHub reports no status checks and no pull-request workflow runs for `c903d9a5e85c8c7507d0e6b7822c1d7a9f6b2b04`.
+- [x] Published remote PR: [PR #1](https://github.com/nickik/wasmi/pull/1), latest verified runtime commit `d23fa08b623cd9e68d964d999730a6347a10e8c0`.
+- [x] Exact-head host test: `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks` — 13 passed on `d23fa08b623cd9e68d964d999730a6347a10e8c0`.
+- [ ] CI evidence: GitHub reports no status checks and no pull-request workflow runs for `d23fa08b623cd9e68d964d999730a6347a10e8c0`.
 
 - [ ] Define the initial target triple/specification for freestanding SIA32 Rust:
   pointer width, endianness, stack alignment, atomics, panic strategy, and supported Rust version.
