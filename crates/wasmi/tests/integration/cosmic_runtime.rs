@@ -5,7 +5,7 @@
 //! vectors once the freestanding Rust target and image path exist.
 
 use sha2::{Digest, Sha256};
-use wasmparser::{Parser, Payload};
+use wasmparser::{CompositeInnerType, Parser, Payload, TypeRef, ValType};
 use wasmi::{Caller, Config, Engine, Extern, Linker, Module, Store, TrapCode};
 
 const OK: i32 = 0;
@@ -20,6 +20,7 @@ const LOG_DENIED: &[u8] = include_bytes!("../fixtures/cosmic/log_denied.wasm");
 const FUEL_LOOP: &[u8] = include_bytes!("../fixtures/cosmic/fuel_loop.wasm");
 const INTEGER_CONTROL: &[u8] = include_bytes!("../fixtures/cosmic/integer_control.wasm");
 const MEMORY_UNBOUNDED: &[u8] = include_bytes!("../fixtures/cosmic/memory_unbounded.wasm");
+const LOG_INCOMPATIBLE: &[u8] = include_bytes!("../fixtures/cosmic/log_incompatible.wasm");
 
 #[derive(Default)]
 struct CosmicHost {
@@ -49,6 +50,7 @@ enum LoadError {
     TooManyImports,
     MemoryLimitExceeded,
     UnknownImport,
+    IncompatibleImport,
     CapabilityDenied,
     InvalidModule,
 }
@@ -84,14 +86,37 @@ fn validate_manifest(bytes: &[u8], manifest: Manifest) -> Result<(), LoadError> 
         return Err(LoadError::ModuleTooLarge);
     }
     let mut imports = 0;
+    let mut function_types = Vec::new();
     for payload in Parser::new(0).parse_all(bytes) {
         match payload.map_err(|_| LoadError::InvalidModule)? {
+            Payload::TypeSection(section) => {
+                for group in section {
+                    let group = group.map_err(|_| LoadError::InvalidModule)?;
+                    for subtype in group.into_types() {
+                        function_types.push(match subtype.composite_type.inner {
+                            CompositeInnerType::Func(function_type) => Some(function_type),
+                            _ => None,
+                        });
+                    }
+                }
+            }
             Payload::ImportSection(section) => {
                 imports += section.count();
                 for import in section {
                     let import = import.map_err(|_| LoadError::InvalidModule)?;
                     if import.module != "cosmic:sys" || import.name != "log_write" {
                         return Err(LoadError::UnknownImport);
+                    }
+                    let TypeRef::Func(type_index) = import.ty else {
+                        return Err(LoadError::IncompatibleImport);
+                    };
+                    let Some(Some(function_type)) = function_types.get(type_index as usize) else {
+                        return Err(LoadError::IncompatibleImport);
+                    };
+                    if function_type.params() != [ValType::I32, ValType::I32, ValType::I32]
+                        || function_type.results() != [ValType::I32]
+                    {
+                        return Err(LoadError::IncompatibleImport);
                     }
                     if !manifest.logging_capability {
                         return Err(LoadError::CapabilityDenied);
@@ -230,6 +255,10 @@ fn cosmic_wat_sources_reproduce_checked_in_binary_fixtures() {
             include_str!("../fixtures/cosmic/memory_unbounded.wat"),
             MEMORY_UNBOUNDED,
         ),
+        (
+            include_str!("../fixtures/cosmic/log_incompatible.wat"),
+            LOG_INCOMPATIBLE,
+        ),
     ] {
         assert_eq!(wat::parse_str(source).unwrap(), fixture);
     }
@@ -299,7 +328,7 @@ fn cosmic_manifest_rejects_unbounded_linear_memory_before_execution() {
 }
 
 #[test]
-fn cosmic_loader_rejects_unknown_and_incompatible_imports_before_guest_execution() {
+fn cosmic_manifest_rejects_unknown_and_incompatible_imports_before_guest_execution() {
     let mut unknown = LOG_OK.to_vec();
     let name = unknown
         .windows(b"log_write".len())
@@ -316,21 +345,11 @@ fn cosmic_loader_rejects_unknown_and_incompatible_imports_before_guest_execution
     assert!(linker.instantiate_and_start(&mut store, &unknown_module).is_err());
     assert!(store.data().logs.is_empty());
 
-    let mut config = Config::default();
-    config.consume_fuel(true);
-    config.compilation_mode(wasmi::CompilationMode::Eager);
-    let engine = Engine::new(&config);
-    let mut store = Store::new(&engine, CosmicHost::default());
-    store.set_fuel(1_000).unwrap();
-    let mut linker = Linker::new(&engine);
-    linker
-        .func_wrap("cosmic:sys", "log_write", || {})
-        .unwrap();
-    let incompatible_module = Module::new(store.engine(), LOG_OK).unwrap();
-    assert!(linker
-        .instantiate_and_start(&mut store, &incompatible_module)
-        .is_err());
-    assert!(store.data().logs.is_empty());
+    let incompatible_manifest = manifest("log-incompatible", LOG_INCOMPATIBLE);
+    assert_eq!(
+        validate_manifest(LOG_INCOMPATIBLE, incompatible_manifest),
+        Err(LoadError::IncompatibleImport)
+    );
 }
 
 #[test]
