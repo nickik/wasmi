@@ -1783,6 +1783,7 @@ version = "2.0.0"
 dependencies = [
  "assert_matches",
  "criterion",
+ "sha2",
  "spin",
  "wasmi_collections 2.0.0",
  "wasmi_core 2.0.0",
