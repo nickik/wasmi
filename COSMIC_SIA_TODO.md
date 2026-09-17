@@ -64,6 +64,10 @@ until Cosmic adopts an equivalent contract.
 - [x] Focused reference-harness command:
   `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks`.
 
+- [x] Published remote commits: `56fb449360404325b0e31f77f1c57b6b76e876de` and `ca87d1804b3d713147fada95d27a244172963d3d`; [PR #1](https://github.com/nickik/wasmi/pull/1).
+- [x] Exact-head host test: `cargo test -p wasmi cosmic_runtime --no-default-features --features wat,validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks` — 10 passed on `ca87d1804b3d713147fada95d27a244172963d3d`.
+- [ ] CI evidence: GitHub reports no status checks and no pull-request workflow runs for `ca87d1804b3d713147fada95d27a244172963d3d`.
+
 - [ ] Define the initial target triple/specification for freestanding SIA32 Rust:
   pointer width, endianness, stack alignment, atomics, panic strategy, and supported Rust version.
 - [ ] Prove a minimal `#![no_std]`, `#![no_main]` Rust binary executes on the real LightingSimulation
