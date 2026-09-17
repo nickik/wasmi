@@ -13,6 +13,7 @@ const EFAULT: i32 = -14;
 const EPERM: i32 = -1;
 const E2BIG: i32 = -7;
 const MAX_LOG_WRITE_BYTES: u32 = 4096;
+const MAX_MODULE_ID_BYTES: usize = 64;
 const LOG_OK: &[u8] = include_bytes!("../fixtures/cosmic/log_ok.wasm");
 const LOG_OOB: &[u8] = include_bytes!("../fixtures/cosmic/log_oob.wasm");
 const LOG_DENIED: &[u8] = include_bytes!("../fixtures/cosmic/log_denied.wasm");
@@ -41,6 +42,7 @@ struct Manifest {
 
 #[derive(Debug, PartialEq, Eq)]
 enum LoadError {
+    InvalidModuleId,
     AbiMismatch,
     HashMismatch,
     ModuleTooLarge,
@@ -69,6 +71,9 @@ fn manifest(module_id: &'static str, bytes: &[u8]) -> Manifest {
 }
 
 fn validate_manifest(bytes: &[u8], manifest: Manifest) -> Result<(), LoadError> {
+    if manifest.module_id.is_empty() || manifest.module_id.len() > MAX_MODULE_ID_BYTES {
+        return Err(LoadError::InvalidModuleId);
+    }
     if manifest.abi != COSMIC_WASM_V1 {
         return Err(LoadError::AbiMismatch);
     }
@@ -247,6 +252,13 @@ fn cosmic_manifest_accepts_the_checked_in_fixture_profile() {
 #[test]
 fn cosmic_manifest_rejects_hash_abi_and_resource_limit_failures_before_execution() {
     let manifest = manifest("log-ok", LOG_OK);
+
+    let mut missing_module_id = manifest;
+    missing_module_id.module_id = "";
+    assert_eq!(
+        validate_manifest(LOG_OK, missing_module_id),
+        Err(LoadError::InvalidModuleId)
+    );
 
     let mut changed = LOG_OK.to_vec();
     let last = changed.len() - 1;
