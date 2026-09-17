@@ -4,7 +4,7 @@
 //! capability ABI so the same Wasm modules can become Cosmic SIA acceptance
 //! vectors once the freestanding Rust target and image path exist.
 
-use wasmi::{Caller, Config, Engine, Extern, Linker, Module, Store};
+use wasmi::{Caller, Config, Engine, Extern, Linker, Module, Store, TrapCode};
 
 const OK: i32 = 0;
 const EFAULT: i32 = -14;
@@ -128,4 +128,28 @@ fn cosmic_log_write_rejects_an_undelegated_capability_without_logging() {
 
     assert_eq!(start.call(&mut store, ()).unwrap(), EPERM);
     assert!(store.data().logs.is_empty());
+}
+
+#[test]
+#[cfg_attr(not(feature = "wat"), ignore)]
+fn cosmic_runtime_reports_fuel_exhaustion_as_a_guest_failure() {
+    let (mut store, linker) = test_setup();
+    let module = Module::new(
+        store.engine(),
+        r#"
+            (module
+                (func (export "_start")
+                    (loop (br 0))
+                )
+            )
+        "#,
+    )
+    .unwrap();
+    let instance = linker.instantiate_and_start(&mut store, &module).unwrap();
+    let start = instance.get_typed_func::<(), ()>(&store, "_start").unwrap();
+    store.set_fuel(10).unwrap();
+
+    let error = start.call(&mut store, ()).unwrap_err();
+    assert_eq!(error.as_trap_code(), Some(TrapCode::OutOfFuel));
+    assert!(store.get_fuel().unwrap() < 10);
 }
