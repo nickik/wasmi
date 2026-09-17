@@ -16,6 +16,30 @@ The first production acceptance target is intentionally interpreter-only:
 SIA native compilation is a later, separately gated AOT path. It must not delay the interpreter
 or require executable-memory/JIT support in Cosmic.
 
+## Verified baseline and external gates (2026-09-17)
+
+- **PROVEN:** `wasmi` builds with the intended interpreter features on Rust nightly 1.100.0:
+  `cargo check -p wasmi --no-default-features --features validate,deterministic,portable-dispatch,indirect-dispatch,extra-checks`.
+  Its normal dependency graph contains no `std` feature.
+- **BLOCKED before crate compilation:** the available Rust compiler has no
+  `sia32-unknown-cosmic` target specification. The exact SIA command fails while rustc queries
+  target metadata, so a Wasmi-side CI target cannot yet be made green.
+- **BLOCKED after target registration:** Wasmi intentionally uses Rust `u64`/`i64` pervasively
+  for values, fuel, and table/memory accounting. The current Cranelift SIA32 backend rejects I64
+  lowering. Disabling Wasm `memory64` does not remove this Rust requirement.
+- **Cosmic placement gate:** Cosmic's authoritative `AGENTS.md` requires production kernel/OS
+  policy in Forge and forbids a permanent Rust kernel. The Wasmi runtime must therefore be
+  defined as an unprivileged service/module with a narrow Cosmic ABI, or Cosmic must explicitly
+  approve a different placement. Do not add a `cosmic-wasmi` Rust crate to the privileged kernel.
+- **Native-path gate:** Cosmic has not yet reached M27--M29 (freestanding Forge profile,
+  SIA image/link ABI, and real native boot). LightingSimulation's existing Pico boot harness
+  accepts assembly-built CSM1 images; it cannot yet ingest a compiler-produced Rust/SIA image.
+
+The next executable prerequisite is Rust-on-SIA support for a freestanding target with
+`alloc` and correct generated I64 support. The runtime work resumes immediately after that gate
+is green. Meanwhile W0 may define the capability ABI and conformance vectors without freezing a
+kernel embedding mechanism.
+
 ## Non-goals for the first milestone
 
 - WASI, POSIX emulation, filesystem or network imports.
@@ -39,6 +63,9 @@ or require executable-memory/JIT support in Cosmic.
   content hash, and an initial static image-loader format.
 - [ ] Write the threat model: malformed Wasm, deliberate fuel/memory exhaustion,
   invalid host pointers, host-import failure, and module traps.
+- [ ] Resolve the runtime placement decision with Cosmic: unprivileged Wasmi service/module
+  ABI versus an explicitly approved alternative. The privileged Forge kernel remains the
+  capability and resource-policy authority in every case.
 
 **Exit:** one reviewed ABI document shared by Cosmic and this fork.
 
@@ -78,9 +105,11 @@ Start without `std`, `wat`, `memory64`, `simd`, or WASI. Re-evaluate
 **Exit:** `cargo build --target sia32-unknown-cosmic --no-default-features` succeeds for the
 minimal interpreter dependency crate, and CI records the exact feature graph.
 
-## Phase 2 — Create the Cosmic embedding crate
+## Phase 2 — Create the Cosmic runtime adapter
 
-- [ ] Add a small `cosmic-wasmi` adapter crate in Cosmic, depending on this fork by pinned revision.
+- [ ] Add a small `cosmic-wasmi` adapter at the selected **unprivileged** runtime/module
+  boundary, depending on this fork by pinned revision. It must not become privileged Cosmic
+  kernel policy code.
 - [ ] Implement a no-heap-host-state path except for the allocator explicitly supplied by Cosmic.
 - [ ] Construct `Engine`, `Store`, `Linker`, `Module`, `Instance`, and typed entry-point
   invocation without `std` convenience APIs.
