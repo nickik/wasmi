@@ -232,11 +232,11 @@ fn cosmic_wat_sources_reproduce_checked_in_binary_fixtures() {
 
 #[test]
 fn cosmic_manifest_accepts_the_checked_in_fixture_profile() {
-    let manifest = manifest("log-ok", LOG_OK);
-    assert_eq!(manifest.module_id, "log-ok");
-    assert!(manifest.logging_capability);
-    assert_eq!(manifest.fuel, 1_000);
-    assert_eq!(validate_manifest(LOG_OK, manifest), Ok(()));
+    let log_manifest = manifest("log-ok", LOG_OK);
+    assert_eq!(log_manifest.module_id, "log-ok");
+    assert!(log_manifest.logging_capability);
+    assert_eq!(log_manifest.fuel, 1_000);
+    assert_eq!(validate_manifest(LOG_OK, log_manifest), Ok(()));
 
     let mut no_imports = manifest("integer-control", INTEGER_CONTROL);
     no_imports.max_imports = 0;
