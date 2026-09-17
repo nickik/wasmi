@@ -50,6 +50,10 @@ kernel embedding mechanism.
 
 ## Phase 0 — Freeze the target and ABI
 
+The proposed unprivileged runtime boundary and initial `cosmic:sys` contract live in
+[`docs/COSMIC_SIA_RUNTIME_CONTRACT.md`](docs/COSMIC_SIA_RUNTIME_CONTRACT.md). It is not frozen
+until Cosmic adopts an equivalent contract.
+
 - [ ] Define the initial target triple/specification for freestanding SIA32 Rust:
   pointer width, endianness, stack alignment, atomics, panic strategy, and supported Rust version.
 - [ ] Prove a minimal `#![no_std]`, `#![no_main]` Rust binary executes on the real LightingSimulation
